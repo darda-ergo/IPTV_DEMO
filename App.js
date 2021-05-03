@@ -8,6 +8,7 @@ import {
   Platform,
   Button,
   TouchableOpacity,
+  useTVEventHandler,
 } from 'react-native';
 import MediaControls, {PLAYER_STATES} from 'react-native-media-controls';
 // import * from 'react-nav'
@@ -55,22 +56,46 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeChannel, setActivcChannel] = useState({});
   const [randMid, setRandMid] = useState(Math.ceil(Channels.length / 2));
-  // const [isNetwork, setIsNetwork] = useState(true);
-  // let randMid = Math.ceil(Channels.length / 2);
+  const [isBuffer, setIsBuffer] = useState(false);
+
+  const [lastEventType, setLastEventType] = React.useState('');
+  const myTVEventHandler = (evt) => {
+    setLastEventType(evt.eventType);
+    if (evt.eventType === 'left') {
+      onPrevPress();
+    }
+    if (evt.eventType === 'right') {
+      onNextPress();
+    }
+  };
+  useTVEventHandler(myTVEventHandler);
+
   useEffect(() => {
     setActivcChannel(Channels[randMid]);
+    console.log('re render');
   }, [activeChannel]);
 
   const onNextPress = () => {
-    if (randMid > Channels.length) return;
+    if (randMid > Channels.length) {
+      setActivcChannel(Channels[0]);
+      setRandMid(0);
+    }
+
     setRandMid((prev) => prev + 1);
+
     console.log('next pressed', randMid);
+
     setActivcChannel(Channels[randMid]);
   };
   const onPrevPress = () => {
-    if (randMid < 0) return;
+    if (randMid < 0) {
+      setActivcChannel(Channels[Channels.length - 1]);
+      setRandMid(Channels.length - 1);
+    }
+
     setRandMid((prev) => prev - 1);
-    console.log('next pressed', randMid);
+    console.log('Prev pressed', randMid);
+    // setIsLoading(true);
     setActivcChannel(Channels[randMid]);
   };
 
@@ -83,6 +108,11 @@ const App = () => {
   const onPaused = (newState) => {
     setPaused(!paused);
     setPlayerState(newState);
+  };
+  const onBuffer = (buffer) => {
+    const {isBuffering} = buffer;
+    console.log('buffefr', isBuffering);
+    setIsBuffer(isBuffering);
   };
 
   const onReplay = () => {
@@ -122,12 +152,20 @@ const App = () => {
 
   return (
     <View>
-      <TouchableOpacity>
-        <View style={styles.buttonContainer}>
-          <Button style={styles.button} title="Prev" onPress={onPrevPress} />
-          <Button style={styles.button} title="Next" onPress={onNextPress} />
+      {/* <View style={styles.buttonContainer}>
+        <TouchableOpacity onPress={onPrevPress}>
+          <Button style={styles.button} title="Prev" />
+        </TouchableOpacity>
+        <Text style={styles.footer}>TVEvent: {lastEventType}</Text>
+        <TouchableOpacity onPress={onNextPress}>
+          <Button style={styles.button} title="Next" />
+        </TouchableOpacity>
+      </View> */}
+      {/* {isBuffer ? (
+        <View style={styles.container}>
+          <Text>Loading....</Text>
         </View>
-      </TouchableOpacity>
+      ) : null} */}
       <View>
         <Video
           source={activeChannel}
@@ -142,6 +180,8 @@ const App = () => {
           currentVideoTime={true}
           style={styles.backgroundVideo}
           isFullScreen={false}
+          onBuffer={onBuffer}
+          paused={false}
         />
         <MediaControls
           isFullScreen={false}
@@ -177,17 +217,16 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingTop: 10,
-    // justifyContent: 'center',r
-    // alignItems: 'center'
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   textStyle: {
     color: 'darkslateblue',
     fontSize: 40,
   },
   backgroundVideo: {
-    marginTop: 50,
-    height: 500,
+    height: '100%',
     width: '100%',
   },
   mediaControls: {
