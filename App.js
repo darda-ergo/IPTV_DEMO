@@ -1,4 +1,5 @@
 import React, {useState, useRef, useEffect} from 'react';
+import axios from 'axios';
 import {
   View,
   Text,
@@ -12,12 +13,13 @@ import {
 } from 'react-native';
 import MediaControls, {PLAYER_STATES} from 'react-native-media-controls';
 // import * from 'react-nav'
-import Header from './Components/Header';
-import ListItem from './Components/ListItem';
 import Video from 'react-native-video';
 import uuid from 'uuid';
 import Channels from './constants/channels';
-import channels from './constants/channels';
+import AuthData from './auth.json';
+import EpgData from './epg.json';
+// import {Channel, Programme} from '@livetv-app/epgdata';
+import {ProgrammeGuide} from '@livetv-app/tvguide';
 
 // const App = () => {
 //   const [items, setItems] = useState([
@@ -46,6 +48,25 @@ const App = () => {
   // http://encodercdn1.frontline.ca/yavin/output/CPAC_English_720p/playlist.m3u8
   // console.log(channels);
   const video = require('./Components/Assets/yourFacebookVideo.mp4');
+  const token =
+    'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE2MjAyODkxMzksIm5iZiI6MTYyMDI4OTEzOSwianRpIjoiY2ZhMTE0NDYtYjk3MC00ZTI1LWE1MzItOGRjN2U3ZjBjNmIzIiwiZXhwIjoxNjIwODkzOTM5LCJpZGVudGl0eSI6IlRlc3QiLCJmcmVzaCI6ZmFsc2UsInR5cGUiOiJhY2Nlc3MiLCJ1c2VyX2NsYWltcyI6eyJjaGFubmVscyI6WzkxMiwxMDAwLDk1Miw5NTMsOTIwLDkyNSwxMDYxLDg0Nyw4NDUsODQ2LDEwNjgsOTg2LDkxNSwxMDUyLDgzNywxMTkxLDkzOSwxMjMzLDEyMDAsMTE4NSwxMTkyLDEwMTcsOTQwLDk0MSw5MjksMTE4NywxMDE5LDkzOSwxMDkzLDEwOTcsMTA5NSwxMDk2LDExODAsMTE4MSwxMTgyLDExODMsMTE4NCw5ODUsODQ5LDkwMSwxMTY4LDEwNzIsMTE3OSw5NjAsMTA1NiwxMDA2LDExOTUsOTcwLDExOTgsMTAwOSwxMDgzLDkyNywxMjAzLDExNzNdfX0.C4X1vzUhQpolF4w9OnTihCszHqs0WmnrTImutDlUxeU';
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: token,
+  };
+  async function getAuth() {
+    try {
+      const result = await axios.post(
+        'http://127.0.0.1:7001/api/create-session',
+        {
+          terminal_code: 'test',
+        },
+      );
+      console.log('result', result);
+    } catch (error) {
+      console.log(error);
+    }
+  }
 
   const videoPlayer = useRef(null);
   const [duration, setDuration] = useState(0);
@@ -57,8 +78,11 @@ const App = () => {
   const [activeChannel, setActivcChannel] = useState({});
   const [randMid, setRandMid] = useState(Math.ceil(Channels.length / 2));
   const [isBuffer, setIsBuffer] = useState(false);
+  const [channelsData, setChannelsData] = useState([]);
+  const [programData, setProgramData] = useState([]);
 
-  const [lastEventType, setLastEventType] = React.useState('');
+  const [lastEventType, setLastEventType] = useState('');
+  const epgRef = useRef(null);
   const myTVEventHandler = (evt) => {
     setLastEventType(evt.eventType);
     if (evt.eventType === 'left') {
@@ -69,11 +93,44 @@ const App = () => {
     }
   };
   useTVEventHandler(myTVEventHandler);
+  const DAY = 1000 * 60 * 60 * 24;
+  const leftBoundary = new Date(Math.floor(Date.now() / DAY) * DAY - DAY * 7);
+  const rightBoundary = new Date(Math.ceil(Date.now() / DAY) * DAY + DAY * 7);
 
   useEffect(() => {
+    if (epgRef.current) {
+      console.log(epgRef.current);
+    }
+    // getAuth();
     setActivcChannel(Channels[randMid]);
-    console.log('re render');
-  }, [activeChannel]);
+    const {
+      data: {channels},
+    } = AuthData;
+    const cc = channels.map((c) => {
+      return {
+        id: c.channel_id.toString(),
+        number: parseInt(c.channel_number),
+        name: c.name,
+        icon: c.logo_url,
+        url: c.stream_url,
+      };
+    });
+    setChannelsData([...cc]);
+    const {data: epg} = EpgData;
+
+    const pp = epg.map((p) => {
+      return {
+        id: p.program_id.toString(),
+        name: p.title,
+        description: p.description,
+        start: new Date(p.start_time),
+        end: new Date(p.end_time),
+        channel: p.channel_id.toString(),
+      };
+    });
+    setProgramData([...pp]);
+  }, []);
+  console.log('Chnalees', channelsData[0]);
 
   const onNextPress = () => {
     if (randMid > Channels.length) {
@@ -98,6 +155,7 @@ const App = () => {
     // setIsLoading(true);
     setActivcChannel(Channels[randMid]);
   };
+  // console.log('data', JSON.parse(AuthData));
 
   const onSeek = (seek) => {
     videoPlayer?.current.seek(seek);
@@ -110,9 +168,9 @@ const App = () => {
     setPlayerState(newState);
   };
   const onBuffer = (buffer) => {
-    const {isBuffering} = buffer;
-    console.log('buffefr', isBuffering);
-    setIsBuffer(isBuffering);
+    // const {isBuffering} = buffer;
+    // console.log('buffefr', isBuffering);
+    // setIsBuffer(isBuffering);
   };
 
   const onReplay = () => {
@@ -151,7 +209,7 @@ const App = () => {
   };
 
   return (
-    <View>
+    <View style={styles.container}>
       {/* <View style={styles.buttonContainer}>
         <TouchableOpacity onPress={onPrevPress}>
           <Button style={styles.button} title="Prev" />
@@ -166,7 +224,7 @@ const App = () => {
           <Text>Loading....</Text>
         </View>
       ) : null} */}
-      <View>
+      {/* <View>
         <Video
           source={activeChannel}
           onEnd={onEnd}
@@ -196,7 +254,16 @@ const App = () => {
           playerState={playerState}
           sliderStyle={{containerStyle: {}, thumbStyle: {}, trackStyle: {}}}
         />
-      </View>
+      </View> */}
+      <ProgrammeGuide
+        channels={channelsData}
+        programmes={programData}
+        ref={epgRef}
+        // channel={channelsData[0]}
+        leftBoundary={leftBoundary}
+        rightBoundary={rightBoundary}
+        internalScrolling
+      />
     </View>
   );
 };

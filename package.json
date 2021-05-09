@@ -10,6 +10,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@livetv-app/tvguide": "^0.2.0",
+    "@react-navigation/native": "^5.9.4",
+    "axios": "^0.21.1",
     "react": "16.13.1",
     "react-native": "npm:react-native-tvos@0.63.4-0",
     "react-native-media-controls": "^2.3.0",
