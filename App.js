@@ -5,48 +5,27 @@ import {
   Text,
   StyleSheet,
   Image,
-  FlatList,
   Platform,
   Button,
   TouchableOpacity,
   useTVEventHandler,
+  FlatList,
+  ScrollView,
 } from 'react-native';
 import MediaControls, {PLAYER_STATES} from 'react-native-media-controls';
-// import * from 'react-nav'
+
 import Video from 'react-native-video';
 import uuid from 'uuid';
 import Channels from './constants/channels';
 import AuthData from './auth.json';
 import EpgData from './epg.json';
-// import {Channel, Programme} from '@livetv-app/epgdata';
 import {ProgrammeGuide} from '@livetv-app/tvguide';
+import EpgDataList from './Components/TableView/EpgDataList';
+import {formatTime} from './utils/timeStrings';
+import {minutesBetween} from './utils/dateTime';
+import EpgDataTable from './Components/TableView/EpgDataTable';
 
-// const App = () => {
-//   const [items, setItems] = useState([
-//     {id:uuid.v4(), itemName: 'rice'},
-//     {id:uuid.v4(), itemName: 'soap'},
-//     {id:uuid.v4(), itemName: 'oil'},
-//     {id:uuid.v4(), itemName: 'potato'}
-//   ])
-//   return(
-//     <View style={styles.container}>
-//       <Header />
-//       <FlatList
-//       data={items}
-//       renderItem={({item})=>
-//       <ListItem item={item} />
-//     }
-//       />
-//     </View>
-
-//   )
-// }
 const App = () => {
-  // The video we will play on the player.
-  // https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8
-  // http://www.streambox.fr/playlists/test_001/stream.m3u8
-  // http://encodercdn1.frontline.ca/yavin/output/CPAC_English_720p/playlist.m3u8
-  // console.log(channels);
   const video = require('./Components/Assets/yourFacebookVideo.mp4');
   const token =
     'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE2MjAyODkxMzksIm5iZiI6MTYyMDI4OTEzOSwianRpIjoiY2ZhMTE0NDYtYjk3MC00ZTI1LWE1MzItOGRjN2U3ZjBjNmIzIiwiZXhwIjoxNjIwODkzOTM5LCJpZGVudGl0eSI6IlRlc3QiLCJmcmVzaCI6ZmFsc2UsInR5cGUiOiJhY2Nlc3MiLCJ1c2VyX2NsYWltcyI6eyJjaGFubmVscyI6WzkxMiwxMDAwLDk1Miw5NTMsOTIwLDkyNSwxMDYxLDg0Nyw4NDUsODQ2LDEwNjgsOTg2LDkxNSwxMDUyLDgzNywxMTkxLDkzOSwxMjMzLDEyMDAsMTE4NSwxMTkyLDEwMTcsOTQwLDk0MSw5MjksMTE4NywxMDE5LDkzOSwxMDkzLDEwOTcsMTA5NSwxMDk2LDExODAsMTE4MSwxMTgyLDExODMsMTE4NCw5ODUsODQ5LDkwMSwxMTY4LDEwNzIsMTE3OSw5NjAsMTA1NiwxMDA2LDExOTUsOTcwLDExOTgsMTAwOSwxMDgzLDkyNywxMjAzLDExNzNdfX0.C4X1vzUhQpolF4w9OnTihCszHqs0WmnrTImutDlUxeU';
@@ -82,6 +61,31 @@ const App = () => {
   const [programData, setProgramData] = useState([]);
 
   const [lastEventType, setLastEventType] = useState('');
+
+  const [startTime, setStartTime] = useState();
+  const [times, setTimes] = useState([]);
+  useEffect(() => {
+    let start = new Date();
+    let minutes = 0;
+    if (start.getMinutes() >= 30) {
+      minutes = 30;
+    }
+    start.setMinutes(minutes, 0, 0);
+    setStartTime(start);
+  }, [programData]);
+
+  useEffect(() => {
+    if (startTime) {
+      let utcTime = startTime.getTime();
+      let tArrar = [];
+      for (let i = 0; i < 4; i++) {
+        let tempTime = new Date(utcTime);
+        tArrar.push(formatTime(tempTime));
+        utcTime += 1800000;
+      }
+      setTimes(tArrar);
+    }
+  }, [startTime]);
   const epgRef = useRef(null);
   const myTVEventHandler = (evt) => {
     setLastEventType(evt.eventType);
@@ -106,6 +110,7 @@ const App = () => {
     const {
       data: {channels},
     } = AuthData;
+    console.log('Chnalees', channels[0]);
     const cc = channels.map((c) => {
       return {
         id: c.channel_id.toString(),
@@ -115,7 +120,7 @@ const App = () => {
         url: c.stream_url,
       };
     });
-    setChannelsData([...cc]);
+    setChannelsData(channels);
     const {data: epg} = EpgData;
 
     const pp = epg.map((p) => {
@@ -128,9 +133,9 @@ const App = () => {
         channel: p.channel_id.toString(),
       };
     });
-    setProgramData([...pp]);
+    setProgramData(epg);
   }, []);
-  console.log('Chnalees', channelsData[0]);
+  console.log('item is :', times);
 
   const onNextPress = () => {
     if (randMid > Channels.length) {
@@ -208,9 +213,87 @@ const App = () => {
     setCurrentTime(duration);
   };
 
+  const renderItem = ({item}) => (
+    <EpgDataList
+      title={item.name}
+      channelNumber={item.channel_number}
+      logo={item.logo_url}
+    />
+  );
+ 
+
   return (
     <View style={styles.container}>
-      {/* <View style={styles.buttonContainer}>
+    
+        <EpgDataTable channels={channelsData} programs={programData} />
+     
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  buttonContainer: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    height: 50,
+    width: '100%',
+    flexDirection: 'row',
+  },
+  button: {
+    width: 100,
+    height: 30,
+    textAlign: 'center',
+    alignItems: 'center',
+  },
+
+  item: {
+    flexDirection: 'row',
+  },
+  container: {
+    flex: 1,
+  },
+
+  textStyle: {
+    color: 'darkslateblue',
+    fontSize: 40,
+  },
+  backgroundVideo: {
+    height: '100%',
+    width: '100%',
+  },
+  mediaControls: {
+    height: '60%',
+
+    alignSelf: 'center',
+  },
+  time: {
+    flexDirection: 'row',
+    fontSize: 18,
+    backgroundColor: '#1faaff',
+    padding: 20,
+    marginVertical: 2,
+    borderRightColor: 'red',
+    marginHorizontal: 2,
+    width: 200,
+    height: 60,
+    alignItems: 'center',
+  },
+  timeChild: {
+    fontSize: 18,
+    backgroundColor: '#1faaff',
+    padding: 20,
+    marginVertical: 8,
+    borderRightColor: 'red',
+    marginHorizontal: 8,
+    width: 200,
+    height: 60,
+    alignItems: 'center',
+  },
+});
+export default App;
+
+{
+  /* <View style={styles.buttonContainer}>
         <TouchableOpacity onPress={onPrevPress}>
           <Button style={styles.button} title="Prev" />
         </TouchableOpacity>
@@ -218,13 +301,17 @@ const App = () => {
         <TouchableOpacity onPress={onNextPress}>
           <Button style={styles.button} title="Next" />
         </TouchableOpacity>
-      </View> */}
-      {/* {isBuffer ? (
+      </View> */
+}
+{
+  /* {isBuffer ? (
         <View style={styles.container}>
           <Text>Loading....</Text>
         </View>
-      ) : null} */}
-      {/* <View>
+      ) : null} */
+}
+{
+  /* <View>
         <Video
           source={activeChannel}
           onEnd={onEnd}
@@ -254,63 +341,39 @@ const App = () => {
           playerState={playerState}
           sliderStyle={{containerStyle: {}, thumbStyle: {}, trackStyle: {}}}
         />
-      </View> */}
-      <ProgrammeGuide
-        channels={channelsData}
-        programmes={programData}
-        ref={epgRef}
-        // channel={channelsData[0]}
-        leftBoundary={leftBoundary}
-        rightBoundary={rightBoundary}
-        internalScrolling
-      />
-    </View>
-  );
-};
+      </View> */
+}
+// <ProgrammeGuide
+//   channels={channelsData}
+//   programmes={programData}
+//   ref={epgRef}
+//   // channel={channelsData[0]}
+//   leftBoundary={leftBoundary}
+//   rightBoundary={rightBoundary}
+//   internalScrolling
+// />
 
-const styles = StyleSheet.create({
-  buttonContainer: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    height: 50,
-    width: '100%',
-    flexDirection: 'row',
-  },
-  button: {
-    width: 100,
-    height: 30,
-    textAlign: 'center',
-    alignItems: 'center',
-  },
-  container: {
-    flex: 1,
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  textStyle: {
-    color: 'darkslateblue',
-    fontSize: 40,
-  },
-  backgroundVideo: {
-    height: '100%',
-    width: '100%',
-  },
-  mediaControls: {
-    height: '60%',
-
-    alignSelf: 'center',
-  },
-  /**
-     * <Image 
-      source={{uri:"https://picsum.photos/200"}} 
-      style={styles.img}
-      />
-      img:{
-      width:200,
-      height:200,
-      borderRadius:200/2
-    }
-     */
-});
-export default App;
+{
+  /* <View style={{flexDirection: 'row'}}>
+        <View style={styles.time}>
+          <Text>{times[0]}</Text>
+        </View>
+        <View style={styles.time}>
+          <Text>{times[1]}</Text>
+        </View>
+        <View style={styles.time}>
+          <Text>{times[2]}</Text>
+        </View>
+        <View style={styles.time}>
+          <Text>{times[3]}</Text>
+        </View>
+      </View>
+      <ScrollView horizontal>
+        <FlatList
+          vertical
+          data={channelsData}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.indexes}
+        />
+      </ScrollView> */
+}
